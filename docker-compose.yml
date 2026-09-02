@@ -1,0 +1,43 @@
+# docker-compose.yml
+# Works with: docker compose up -d  OR  podman-compose up -d
+# On systems with only podman (no compose plugin), use: make services-up
+# which runs the equivalent `podman run` commands defined in the Makefile.
+
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: docsim_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: docsim
+      POSTGRES_PASSWORD: docsim_secret
+      POSTGRES_DB: docsim
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docsim -d docsim"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: docsim_redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    # Disable persistence for the LSH index — it is ephemeral by design
+    # (the rebuild-index endpoint is the authoritative way to repopulate it).
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:
